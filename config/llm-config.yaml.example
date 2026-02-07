@@ -1,0 +1,74 @@
+# LLM 配置示例 (仅供参考，实际配置请使用环境变量或 .env 文件)
+# See .env.example for the actual configuration file
+
+# ==========================================
+# OpenAI GPT-4o (推荐用于图片描述)
+# ==========================================
+# openai:
+#   api_url: https://api.openai.com/v1/chat/completions
+#   api_key: sk-your-openai-api-key
+#   model: gpt-4o
+#   max_workers: 3
+
+# ==========================================
+# Azure OpenAI
+# ==========================================
+# azure:
+#   api_url: https://your-resource.openai.azure.com/openai/deployments/your-deployment/chat/completions?api-version=2024-02-15-preview
+#   api_key: your-azure-api-key
+#   model: gpt-4o
+#   max_workers: 3
+
+# ==========================================
+# Anthropic Claude (通过 OpenAI 兼容层)
+# ==========================================
+# anthropic:
+#   api_url: https://api.anthropic.com/v1/messages
+#   api_key: sk-ant-your-anthropic-key
+#   model: claude-3-5-sonnet-20241022
+#   max_workers: 2
+
+# ==========================================
+# 本地模型 - vLLM
+# ==========================================
+# vllm:
+#   api_url: http://localhost:8000/v1/chat/completions
+#   api_key: dummy
+#   model: Qwen/Qwen2-VL-7B-Instruct
+#   max_workers: 3
+
+# ==========================================
+# 本地模型 - Ollama
+# ==========================================
+# ollama:
+#   api_url: http://localhost:11434/v1/chat/completions
+#   api_key: dummy
+#   model: llava
+#   max_workers: 1
+
+# ==========================================
+# 本地模型 - Xinference
+# ==========================================
+# xinference:
+#   api_url: http://localhost:9997/v1/chat/completions
+#   api_key: dummy
+#   model: qwen2-vl-instruct
+#   max_workers: 3
+
+# ==========================================
+# 第三方 API - Together AI
+# ==========================================
+# together:
+#   api_url: https://api.together.xyz/v1/chat/completions
+#   api_key: your-together-api-key
+#   model: Qwen/Qwen2-VL-72B-Instruct
+#   max_workers: 3
+
+# ==========================================
+# 第三方 API - OpenRouter
+# ==========================================
+# openrouter:
+#   api_url: https://openrouter.ai/api/v1/chat/completions
+#   api_key: your-openrouter-api-key
+#   model: qwen/qwen-2-vl-72b-instruct
+#   max_workers: 3

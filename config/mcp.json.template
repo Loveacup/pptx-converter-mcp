@@ -2,10 +2,11 @@
   "mcpServers": {
     "pptx-converter": {
       "command": "/opt/homebrew/bin/python3.11",
-      "args": ["/Users/alexcai/.local/bin/pptx-converter-mcp"],
+      "args": ["HOME_DIR/.local/bin/pptx-converter-mcp"],
       "env": {
-        "LLM_API_URL": "http://172.16.27.10:9998/v1/chat/completions",
-        "LLM_MODEL": "Qwen3-VL-32B",
+        "LLM_API_URL": "YOUR_LLM_API_URL",
+        "LLM_API_KEY": "YOUR_LLM_API_KEY",
+        "LLM_MODEL": "YOUR_MODEL_NAME",
         "MAX_WORKERS": "3",
         "CACHE_DIR": "/tmp/ppt_image_cache"
       }
