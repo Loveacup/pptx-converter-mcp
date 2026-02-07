@@ -103,18 +103,18 @@ fi
 cp config/mcp.json.template "$HOME/.mcp.json"
 echo -e "${GREEN}✅ MCP 配置已安装${NC}"
 
-# 检查 API
-echo ""
-echo "🔌 检查 LLM API..."
-if curl -s http://172.16.27.10:9998/v1/models > /dev/null 2>&1; then
-    echo -e "${GREEN}✅ LLM API 可访问${NC}"
-else
-    echo -e "${YELLOW}⚠️  LLM API 暂不可用 (http://172.16.27.10:9998)${NC}"
-    echo "   请确保 Qwen3-VL-32B 服务已启动"
-fi
-
 # 创建缓存目录
 mkdir -p /tmp/ppt_image_cache
+
+# 复制 .env.example 如果不存在
+if [ ! -f "$(pwd)/.env" ]; then
+    echo ""
+    echo "📝 配置 LLM..."
+    echo -e "${YELLOW}⚠️  请配置 LLM 环境变量${NC}"
+    echo "   复制 .env.example 到 .env 并填写你的配置:"
+    echo "   cp .env.example .env"
+    echo "   vim .env"
+fi
 
 echo ""
 echo "================================"

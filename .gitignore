@@ -36,6 +36,11 @@ env/
 .DS_Store
 Thumbs.db
 
+# Environment files (may contain secrets)
+.env
+.env.local
+.env.production
+
 # Logs
 *.log
 
@@ -48,6 +53,7 @@ Thumbs.db
 !docs/*.md
 !README.md
 !QUICK-START.md
+!.env.example
 
 # Large files
 *.pptx

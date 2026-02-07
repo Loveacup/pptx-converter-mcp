@@ -1,46 +1,89 @@
-# MCP 服务器部署完成 ✅
+# MCP 服务器部署指南
 
-## 部署状态
+## 部署组件
 
-### 📦 已部署组件
-
-#### 1. MCP 服务器: `pptx-converter`
+### 1. MCP 服务器: `pptx-converter`
 **路径**: `~/.local/bin/pptx-converter-mcp`
 **配置**: `~/.mcp.json`
 
 **功能**:
-- ✅ `convert_single_pptx` - 单人 PPT 转换（带图片描述）
-- ✅ `convert_batch_pptx` - 批量 PPT 转换（带图片描述）
+- `convert_single_pptx` - 单人 PPT 转换（带图片描述）
+- `convert_batch_pptx` - 批量 PPT 转换（带图片描述）
 
-#### 2. 底层工具
+### 2. 底层工具
 | 工具 | 路径 | 功能 |
 |------|------|------|
 | `pptx-to-md` | `~/.local/bin/pptx-to-md` | 单人转换 |
 | `pptx-batch-convert` | `~/.local/bin/pptx-batch-convert` | 批量转换 |
 | `pptx-converter-mcp` | `~/.local/bin/pptx-converter-mcp` | MCP 服务器 |
 
-#### 3. 配置更新
-**文件**: `~/.mcp.json`
-
-**已移除**:
-- ❌ 原有的 `markitdown` MCP（功能有限）
-
-**已添加**:
-- ✅ 新的 `pptx-converter` MCP（完整功能）
-
 ---
 
-## 配置详情
+## 配置步骤
+
+### 步骤 1: 设置环境变量
+
+工具需要以下环境变量才能运行：
+
+| 变量 | 必需 | 说明 |
+|------|------|------|
+| `LLM_API_URL` | ✅ | Vision LLM API 端点 URL |
+| `LLM_MODEL` | ✅ | 模型名称 |
+| `LLM_API_KEY` | ❌ | API 密钥（部分提供商需要） |
+| `MAX_WORKERS` | ❌ | 并发数（默认: 3） |
+| `CACHE_DIR` | ❌ | 缓存目录（默认: /tmp/ppt_image_cache） |
+
+### 步骤 2: 配置 MCP
+
+编辑 `~/.mcp.json`，使用你的 LLM 配置替换占位符：
 
 ```json
 {
   "mcpServers": {
     "pptx-converter": {
       "command": "/opt/homebrew/bin/python3.11",
-      "args": ["/Users/alexcai/.local/bin/pptx-converter-mcp"],
+      "args": ["/Users/YOUR_USERNAME/.local/bin/pptx-converter-mcp"],
       "env": {
-        "LLM_API_URL": "http://172.16.27.10:9998/v1/chat/completions",
-        "LLM_MODEL": "Qwen3-VL-32B",
+        "LLM_API_URL": "YOUR_LLM_API_URL",
+        "LLM_API_KEY": "YOUR_LLM_API_KEY",
+        "LLM_MODEL": "YOUR_MODEL_NAME",
+        "MAX_WORKERS": "3",
+        "CACHE_DIR": "/tmp/ppt_image_cache"
+      }
+    }
+  }
+}
+```
+
+**MCP 配置示例 - OpenAI:**
+```json
+{
+  "mcpServers": {
+    "pptx-converter": {
+      "command": "/opt/homebrew/bin/python3.11",
+      "args": ["/Users/yourname/.local/bin/pptx-converter-mcp"],
+      "env": {
+        "LLM_API_URL": "https://api.openai.com/v1/chat/completions",
+        "LLM_API_KEY": "sk-your-openai-api-key",
+        "LLM_MODEL": "gpt-4o",
+        "MAX_WORKERS": "3",
+        "CACHE_DIR": "/tmp/ppt_image_cache"
+      }
+    }
+  }
+}
+```
+
+**MCP 配置示例 - 本地模型:**
+```json
+{
+  "mcpServers": {
+    "pptx-converter": {
+      "command": "/opt/homebrew/bin/python3.11",
+      "args": ["/Users/yourname/.local/bin/pptx-converter-mcp"],
+      "env": {
+        "LLM_API_URL": "http://localhost:8000/v1/chat/completions",
+        "LLM_MODEL": "your-local-model",
         "MAX_WORKERS": "3",
         "CACHE_DIR": "/tmp/ppt_image_cache"
       }
@@ -114,18 +157,18 @@
 
 ## 功能特性
 
-### ✅ 核心功能
+### 核心功能
 1. **自动提取图片** - 从 PPT 中提取所有图片（PNG/JPG/JPEG/GIF/BMP/WebP）
-2. **AI 图片描述** - 使用本地 Qwen3-VL-32B 模型生成详细描述
+2. **AI 图片描述** - 使用 Vision LLM 生成详细描述
 3. **多线程处理** - 默认 3 并发，提高处理速度
 4. **智能缓存** - 避免重复处理相同图片
 5. **Markdown 整合** - 将描述自动添加到对应图片下方
 
-### 📊 性能指标
-- 单张图片处理时间: ~3-5 秒
-- 并发数: 3（可调节）
+### 性能指标
+- 单张图片处理时间: 取决于 LLM 提供商
+- 并发数: 可配置（默认 3）
 - 支持格式: PPTX
-- 缓存位置: `/tmp/ppt_image_cache/`
+- 缓存位置: 可配置
 
 ---
 
@@ -135,44 +178,39 @@
 - MCP SDK (`pip install mcp`)
 - requests
 - markitdown
-- 本地 LLM API (Qwen3-VL-32B at `http://172.16.27.10:9998/v1`)
+- 任意支持 OpenAI 兼容 API 的 Vision LLM
 
 ---
 
 ## 故障排除
 
-### 问题 1: MCP 服务器无法启动
+### 问题 1: "LLM_API_URL and LLM_MODEL must be set"
+**原因**: MCP 配置中未设置必需的环境变量。
+**解决**: 编辑 `~/.mcp.json`，确保 `env` 中包含有效的 `LLM_API_URL` 和 `LLM_MODEL`。
+
+### 问题 2: MCP 服务器无法启动
 **检查**:
 ```bash
-# 测试 MCP 服务器脚本
-/opt/homebrew/bin/python3.11 /Users/alexcai/.local/bin/pptx-converter-mcp --help
-
 # 检查依赖
-/opt/homebrew/bin/python3.11 -c "from mcp.server import Server; print('OK')"
+python3.11 -c "from mcp.server import Server; print('OK')"
 ```
 
-### 问题 2: 工具命令找不到
+### 问题 3: 工具命令找不到
 **解决**:
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 ```
 
-### 问题 3: LLM API 连接失败
+### 问题 4: LLM API 连接失败
 **检查**:
 ```bash
-curl http://172.16.27.10:9998/v1/models
+# 测试 API 端点
+curl -s "$LLM_API_URL" -H "Authorization: Bearer $LLM_API_KEY"
 ```
 
----
-
-## 更新日志
-
-### v1.0 (2024-02-07)
-- ✅ 部署自定义 MCP 服务器
-- ✅ 整合单人/批量转换功能
-- ✅ 使用本地 Qwen3-VL-32B 模型
-- ✅ 移除原有功能受限的 markitdown MCP
-- ✅ 支持图片描述生成
+### 问题 5: API 返回 401 Unauthorized
+**原因**: API 密钥无效或未设置。
+**解决**: 确保 `LLM_API_KEY` 设置正确。
 
 ---
 
@@ -192,17 +230,27 @@ curl http://172.16.27.10:9998/v1/models
               │ subprocess
               ▼
 ┌─────────────────────────────────────────┐
-│  pptx-to-md  │  pptx-batch-convert       │
-│  (单人转换)   │  (批量转换)               │
-└─────────────┼───────────────────────────┘
+│  pptx-to-md  │  pptx-batch-convert     │
+│  (单人转换)   │  (批量转换)             │
+└──────────────┼──────────────────────────┘
               │
               ▼
 ┌─────────────────────────────────────────┐
-│  Local LLM API (Qwen3-VL-32B)           │
-│  http://172.16.27.10:9998/v1            │
+│  Vision LLM API                         │
+│  (OpenAI / Azure / Local / etc.)        │
 └─────────────────────────────────────────┘
 ```
 
 ---
 
-**部署完成！MCP 服务器已准备好接受请求。** 🎉
+## 更新日志
+
+### v1.1 (2026-02-08)
+- ✅ 支持多种 Vision LLM 后端
+- ✅ 移除硬编码的 API 配置
+- ✅ 添加环境变量验证
+
+### v1.0 (2024-02-07)
+- ✅ 部署自定义 MCP 服务器
+- ✅ 整合单人/批量转换功能
+- ✅ 支持图片描述生成
