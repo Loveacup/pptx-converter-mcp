@@ -29,10 +29,16 @@ pptx-batch-convert "/path/to/ppt/folder"
 请批量转换 /path/to/ppt/folder 中的所有 PPT
 ```
 
-## API 端点
+## 配置
 
-- **URL:** http://172.16.27.10:9998/v1/chat/completions
-- **模型:** Qwen3-VL-32B
+设置环境变量（必需）:
+```bash
+export LLM_API_URL="your-api-url"
+export LLM_MODEL="your-model-name"
+export LLM_API_KEY="your-api-key"  # 如需要
+```
+
+详见 `.env.example` 配置示例。
 
 ## 文件位置
 
