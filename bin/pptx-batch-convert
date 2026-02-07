@@ -1,0 +1,337 @@
+#!/opt/homebrew/bin/python3.11
+"""
+MCP 工具：PPT 批量转 Markdown（带图片描述）
+使用本地 Qwen3-VL-32B 模型
+
+用法:
+    python pptx_batch_converter.py <input_dir> [output_dir]
+"""
+import os
+import sys
+import json
+import base64
+import zipfile
+import hashlib
+import requests
+import re
+from pathlib import Path
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from typing import Dict, List, Optional, Tuple
+
+# 配置
+API_URL = os.environ.get("LLM_API_URL", "http://172.16.27.10:9998/v1/chat/completions")
+MODEL = os.environ.get("LLM_MODEL", "Qwen3-VL-32B")
+MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "3"))
+CACHE_DIR = Path(os.environ.get("CACHE_DIR", "/tmp/ppt_image_cache"))
+
+def ensure_cache_dir():
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+def get_cache_path(pptx_path: Path) -> Path:
+    pptx_hash = hashlib.md5(pptx_path.read_bytes()).hexdigest()[:16]
+    return CACHE_DIR / f"{pptx_path.stem}_{pptx_hash}.json"
+
+def load_cache(cache_path: Path) -> Dict:
+    if cache_path.exists():
+        with open(cache_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {}
+
+def save_cache(cache_path: Path, data: Dict):
+    with open(cache_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def describe_image(image_path: Path) -> Optional[str]:
+    try:
+        with open(image_path, "rb") as f:
+            img_data = f.read()
+        
+        img_base64 = base64.b64encode(img_data).decode('utf-8')
+        ext = image_path.suffix[1:] if image_path.suffix else 'png'
+        
+        payload = {
+            "model": MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "请用中文详细描述这张图片的内容。如果是图表，请说明图表类型、数据趋势；如果是界面截图，请描述界面布局和功能；如果是图标，请描述图标样式和含义。控制在100字以内。"
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": f"data:image/{ext};base64,{img_base64}"}
+                        }
+                    ]
+                }
+            ],
+            "max_tokens": 200,
+            "temperature": 0.3
+        }
+        
+        response = requests.post(
+            API_URL,
+            headers={"Content-Type": "application/json"},
+            json=payload,
+            timeout=60
+        )
+        response.raise_for_status()
+        result = response.json()
+        return result['choices'][0]['message']['content'].strip()
+        
+    except Exception as e:
+        return f"[图片描述生成失败: {e}]"
+
+def extract_images_from_pptx(pptx_path: Path, extract_dir: Path) -> List[Path]:
+    """从 PPT 中提取所有图片，保持原始文件名"""
+    images = []
+    supported_ext = {'.png', '.jpg', '.jpeg', '.gif', '.bmp', '.webp'}
+    
+    try:
+        with zipfile.ZipFile(pptx_path, 'r') as z:
+            media_files = [f for f in z.namelist() if f.startswith('ppt/media/')]
+            
+            for media_file in media_files:
+                file_ext = Path(media_file).suffix.lower()
+                if file_ext not in supported_ext:
+                    continue
+                    
+                file_data = z.read(media_file)
+                filename = Path(media_file).name
+                output_path = extract_dir / filename
+                
+                with open(output_path, 'wb') as f:
+                    f.write(file_data)
+                
+                images.append(output_path)
+    
+    except Exception as e:
+        print(f"⚠️  提取图片失败: {e}", file=sys.stderr)
+    
+    return images
+
+def build_image_number_mapping(extract_dir: Path) -> Dict[int, Path]:
+    """建立图片序号到文件路径的映射"""
+    mapping = {}
+    for img_path in extract_dir.iterdir():
+        if img_path.is_file():
+            # 提取数字
+            match = re.search(r'\d+', img_path.stem)
+            if match:
+                num = int(match.group())
+                mapping[num] = img_path
+    return mapping
+
+def process_images_batch(images: List[Path], cache: Dict) -> Dict[int, str]:
+    """批量处理图片，返回序号到描述的映射"""
+    descriptions = {}
+    completed = 0
+    failed = 0
+    
+    def process_single(img_path: Path) -> Tuple[int, str, bool]:
+        # 提取序号
+        match = re.search(r'\d+', img_path.stem)
+        if not match:
+            return 0, "", False
+        img_num = int(match.group())
+        
+        # 检查缓存
+        cache_key = f"num_{img_num}"
+        if cache_key in cache:
+            return img_num, cache[cache_key], True
+        
+        # 生成描述
+        desc = describe_image(img_path)
+        success = not desc.startswith("[图片描述生成失败")
+        
+        return img_num, desc, success
+    
+    print(f"🔄 开始识别 {len(images)} 张图片...")
+    
+    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
+        future_to_image = {executor.submit(process_single, img): img for img in images}
+        
+        for future in as_completed(future_to_image):
+            img_path = future_to_image[future]
+            try:
+                img_num, description, success = future.result()
+                if img_num == 0:
+                    continue
+                    
+                descriptions[img_num] = description
+                
+                if success:
+                    completed += 1
+                    cache[f"num_{img_num}"] = description
+                else:
+                    failed += 1
+                
+                progress = (completed + failed) / len(images) * 100
+                print(f"\r   ⏳ 进度: {completed+failed}/{len(images)} ({progress:.1f}%) - image{img_num}", 
+                      end='', flush=True)
+                
+            except Exception as e:
+                failed += 1
+                print(f"\n   ❌ 失败: {img_path.name} - {e}", file=sys.stderr)
+    
+    print(f"\n   ✅ 完成: {completed}成功, {failed}失败")
+    return descriptions
+
+def integrate_descriptions(content: str, descriptions: Dict[int, str]) -> str:
+    """将图片描述整合到 Markdown 内容中"""
+    # 查找所有图片引用
+    img_pattern = r'!\[([^\]]*)\]\(([^)]+)\)'
+    
+    def replace_with_description(match):
+        alt_text = match.group(1)
+        img_path = match.group(2)
+        full_match = match.group(0)
+        
+        # 提取图片编号
+        num_match = re.search(r'\d+', Path(img_path).stem)
+        if not num_match:
+            return full_match
+        
+        img_num = int(num_match.group())
+        
+        # 查找对应的描述
+        if img_num in descriptions:
+            desc = descriptions[img_num]
+            desc_block = f"\n\n> 🖼️ **图片描述**: {desc[:150]}"
+            if len(desc) > 150:
+                desc_block += "..."
+            return full_match + desc_block
+        
+        return full_match
+    
+    return re.sub(img_pattern, replace_with_description, content)
+
+def convert_single_pptx(pptx_path: Path, output_dir: Path) -> Path:
+    """转换单个 PPT"""
+    output_path = output_dir / f"{pptx_path.stem}.md"
+    
+    ensure_cache_dir()
+    cache_path = get_cache_path(pptx_path)
+    cache = load_cache(cache_path)
+    
+    print(f"\n📄 处理: {pptx_path.name}")
+    
+    # 步骤 1: 提取图片
+    extract_dir = CACHE_DIR / f"{pptx_path.stem}_images"
+    extract_dir.mkdir(exist_ok=True)
+    
+    images = extract_images_from_pptx(pptx_path, extract_dir)
+    if not images:
+        print("   ⚠️  未找到图片")
+        descriptions = {}
+    else:
+        print(f"   🖼️  找到 {len(images)} 张图片")
+        descriptions = process_images_batch(images, cache)
+        save_cache(cache_path, cache)
+    
+    # 步骤 2: 转换基础内容
+    print("   📝 转换基础内容...")
+    try:
+        from markitdown import MarkItDown
+        md = MarkItDown()
+        result = md.convert(str(pptx_path))
+        content = result.text_content
+    except ImportError:
+        print("   ⚠️  markitdown 未安装，仅生成图片描述列表")
+        content = f"# {pptx_path.stem}\n\n"
+    
+    # 步骤 3: 整合图片描述
+    if descriptions:
+        print(f"   🔗 整合 {len(descriptions)} 个图片描述...")
+        content = integrate_descriptions(content, descriptions)
+    
+    # 步骤 4: 保存
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write(content)
+    
+    print(f"   ✅ 输出: {output_path.name}")
+    return output_path
+
+def batch_convert(input_dir: Path, output_dir: Path):
+    """批量转换目录中的所有 PPT"""
+    if not input_dir.exists():
+        raise FileNotFoundError(f"输入目录不存在: {input_dir}")
+    
+    output_dir.mkdir(parents=True, exist_ok=True)
+    
+    # 查找所有 PPT
+    pptx_files = sorted(input_dir.glob("*.pptx"))
+    
+    if not pptx_files:
+        print(f"❌ 未在 {input_dir} 找到 .pptx 文件")
+        return
+    
+    print("=" * 70)
+    print("🚀 PPT 批量转 Markdown（MCP 工具）")
+    print(f"   API: {API_URL}")
+    print(f"   模型: {MODEL}")
+    print(f"   并发: {MAX_WORKERS}")
+    print("=" * 70)
+    print(f"\n📁 找到 {len(pptx_files)} 个PPT文件")
+    print(f"📂 输出目录: {output_dir}\n")
+    
+    # 逐个处理
+    success_count = 0
+    failed_count = 0
+    
+    for idx, pptx_file in enumerate(pptx_files, 1):
+        print(f"\n{'='*70}")
+        print(f"📊 进度: [{idx}/{len(pptx_files)}]")
+        print('='*70)
+        
+        try:
+            convert_single_pptx(pptx_file, output_dir)
+            success_count += 1
+        except Exception as e:
+            print(f"❌ 失败: {e}")
+            failed_count += 1
+    
+    # 统计
+    print(f"\n{'='*70}")
+    print("🎉 批量转换完成！")
+    print(f"   ✅ 成功: {success_count}")
+    print(f"   ❌ 失败: {failed_count}")
+    print(f"   📂 输出: {output_dir}")
+    print('='*70)
+
+def main():
+    if len(sys.argv) < 2:
+        print("用法: python pptx_batch_converter.py <input_dir> [output_dir]")
+        print("")
+        print("参数:")
+        print("  input_dir   - 输入目录（包含 .pptx 文件）")
+        print("  output_dir  - 输出目录（默认: input_dir/../Markdown）")
+        print("")
+        print("环境变量:")
+        print("  LLM_API_URL  - API 端点")
+        print("  LLM_MODEL    - 模型名称")
+        print("  MAX_WORKERS  - 并发数")
+        print("  CACHE_DIR    - 缓存目录")
+        sys.exit(1)
+    
+    input_dir = Path(sys.argv[1])
+    
+    if len(sys.argv) > 2:
+        output_dir = Path(sys.argv[2])
+    else:
+        output_dir = input_dir.parent / "Markdown"
+    
+    try:
+        batch_convert(input_dir, output_dir)
+    except KeyboardInterrupt:
+        print("\n\n⚠️  用户中断")
+        sys.exit(0)
+    except Exception as e:
+        print(f"\n❌ 错误: {e}", file=sys.stderr)
+        import traceback
+        traceback.print_exc()
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
