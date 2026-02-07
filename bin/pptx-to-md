@@ -1,7 +1,7 @@
 #!/opt/homebrew/bin/python3.11
 """
 优化版 PPT 转 Markdown 工具
-基于成功经验：本地 Qwen3-VL-32B + 多线程 + 缓存
+支持多种 Vision LLM 后端 + 多线程 + 缓存
 可作为 MCP 工具使用
 
 用法:
@@ -20,10 +20,38 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from typing import Dict, List, Optional
 
 # 配置
-API_URL = os.environ.get("LLM_API_URL", "http://172.16.27.10:9998/v1/chat/completions")
-MODEL = os.environ.get("LLM_MODEL", "Qwen3-VL-32B")
 MAX_WORKERS = int(os.environ.get("MAX_WORKERS", "3"))
 CACHE_DIR = Path(os.environ.get("CACHE_DIR", "/tmp/ppt_image_cache"))
+
+def load_config():
+    """加载 LLM 配置，验证必需的环境变量"""
+    api_url = os.environ.get("LLM_API_URL")
+    api_key = os.environ.get("LLM_API_KEY")
+    model = os.environ.get("LLM_MODEL")
+
+    if not api_url or not model:
+        print("❌ Error: LLM_API_URL and LLM_MODEL must be set", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Please copy .env.example to .env and configure your LLM settings,", file=sys.stderr)
+        print("or set environment variables:", file=sys.stderr)
+        print("  export LLM_API_URL=your-api-url", file=sys.stderr)
+        print("  export LLM_API_KEY=your-api-key  # if required by your provider", file=sys.stderr)
+        print("  export LLM_MODEL=your-model-name", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("Examples:", file=sys.stderr)
+        print("  # OpenAI", file=sys.stderr)
+        print("  export LLM_API_URL=https://api.openai.com/v1/chat/completions", file=sys.stderr)
+        print("  export LLM_API_KEY=sk-...", file=sys.stderr)
+        print("  export LLM_MODEL=gpt-4o", file=sys.stderr)
+        print("", file=sys.stderr)
+        print("  # Local model (vLLM, Ollama, etc.)", file=sys.stderr)
+        print("  export LLM_API_URL=http://localhost:8000/v1/chat/completions", file=sys.stderr)
+        print("  export LLM_MODEL=your-model-name", file=sys.stderr)
+        sys.exit(1)
+
+    return api_url, api_key, model
+
+API_URL, API_KEY, MODEL = load_config()
 
 def ensure_cache_dir():
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
@@ -74,9 +102,13 @@ def describe_image(image_path: Path) -> Optional[str]:
             "temperature": 0.3
         }
         
+        headers = {"Content-Type": "application/json"}
+        if API_KEY:
+            headers["Authorization"] = f"Bearer {API_KEY}"
+        
         response = requests.post(
             API_URL,
-            headers={"Content-Type": "application/json"},
+            headers=headers,
             json=payload,
             timeout=60
         )
@@ -263,13 +295,18 @@ def convert_pptx_to_markdown(pptx_path: Path, output_path: Optional[Path] = None
 
 def main():
     if len(sys.argv) < 2:
-        print("用法: python pptx_to_markdown_enhanced.py <input.pptx> [output.md]")
+        print("用法: pptx-to-md <input.pptx> [output.md]")
         print("")
-        print("环境变量:")
-        print("  LLM_API_URL    - LLM API 端点 (默认: http://172.16.27.10:9998/v1/chat/completions)")
-        print("  LLM_MODEL      - 模型名称 (默认: Qwen3-VL-32B)")
+        print("环境变量 (必需):")
+        print("  LLM_API_URL    - LLM API 端点 (例: https://api.openai.com/v1/chat/completions)")
+        print("  LLM_MODEL      - 模型名称 (例: gpt-4o)")
+        print("")
+        print("环境变量 (可选):")
+        print("  LLM_API_KEY    - API 密钥")
         print("  MAX_WORKERS    - 并发数 (默认: 3)")
         print("  CACHE_DIR      - 缓存目录 (默认: /tmp/ppt_image_cache)")
+        print("")
+        print("详见 .env.example 配置示例")
         sys.exit(1)
     
     input_path = Path(sys.argv[1])
@@ -277,7 +314,6 @@ def main():
     
     print("=" * 60)
     print("🚀 PPT 转 Markdown（增强版）")
-    print(f"   API: {API_URL}")
     print(f"   模型: {MODEL}")
     print(f"   并发: {MAX_WORKERS}")
     print("=" * 60)
