@@ -1,40 +1,48 @@
 # PPTX Converter MCP
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg)](https://www.python.org/)
+[![MCP Compatible](https://img.shields.io/badge/MCP-Compatible-green.svg)](https://modelcontextprotocol.io/)
+
 [English](README.md) | [中文](README.zh-CN.md)
 
-Convert PowerPoint presentations to Markdown with AI-powered image descriptions.
+Convert PowerPoint presentations to Markdown with **AI-powered image descriptions**. Works as a CLI tool or an [MCP](https://modelcontextprotocol.io/) server for seamless integration with Claude Code.
 
-Supports multiple Vision LLM backends: OpenAI, Azure OpenAI, Anthropic, Local models (vLLM, Ollama), and more.
+## Features
 
----
+- **AI Image Descriptions** — Automatically generates descriptive text for images in slides using Vision LLMs
+- **Multiple LLM Backends** — OpenAI, Azure OpenAI, Anthropic, local models (vLLM, Ollama), and any OpenAI-compatible API
+- **Single & Batch Conversion** — Convert one file or an entire folder in a single command
+- **Multi-threaded Processing** — Parallel image analysis for faster conversion
+- **Smart Caching** — Skips already-processed images to avoid redundant API calls
+- **MCP Server** — Use directly within Claude Code as a tool
 
-## 📢 Acknowledgments
+## How It Works
 
-This project is built on top of [Microsoft MarkItDown](https://github.com/microsoft/markitdown), an excellent tool for converting various file formats to Markdown. We extend its functionality by adding:
+```
+┌──────────┐     ┌───────────────┐     ┌────────────┐     ┌──────────┐
+│  .pptx   │────>│  MarkItDown   │────>│ Vision LLM │────>│ Markdown │
+│  file(s) │     │  (text/layout)│     │ (images)   │     │ output   │
+└──────────┘     └───────────────┘     └────────────┘     └──────────┘
+```
 
-- AI-powered image description capabilities
-- MCP (Model Context Protocol) server support
-- Multi-threading and caching optimizations
-- Support for multiple Vision LLM providers
-
----
+The tool extracts text and layout via [Microsoft MarkItDown](https://github.com/microsoft/markitdown), then sends each embedded image to a Vision LLM for description, and merges everything into a clean Markdown file.
 
 ## Quick Start
 
 ### 1. Install
 
 ```bash
-cd PPTX-Converter-MCP
+git clone https://github.com/Loveacup/pptx-converter-mcp.git
+cd pptx-converter-mcp
 ./install.sh
 ```
 
 ### 2. Configure LLM
 
 ```bash
-# Copy configuration template
 cp .env.example .env
-
-# Edit .env file, set your LLM provider
+# Edit .env — set your LLM provider and API key
 vim .env
 ```
 
@@ -44,110 +52,100 @@ vim .env
 source ~/.zshrc  # or ~/.bashrc
 ```
 
-### 4. Usage
+### 4. Convert
 
-**Single file conversion:**
 ```bash
+# Single file
 pptx-to-md "presentation.pptx" "output.md"
-```
 
-**Batch conversion:**
-```bash
+# Batch — converts all .pptx files in a folder
 pptx-batch-convert "/path/to/ppt/folder"
-```
 
-**Use in Claude Code:**
+# Or use in Claude Code directly
+# > Please convert presentation.pptx to Markdown
 ```
-Please convert presentation.pptx to Markdown
-```
-
----
 
 ## Configuration
 
 ### Environment Variables
 
 | Variable | Required | Description |
-|----------|----------|-------------|
-| `LLM_API_URL` | ✅ | LLM API endpoint URL |
-| `LLM_MODEL` | ✅ | Model name |
-| `LLM_API_KEY` | ❌ | API key (required by some providers) |
-| `MAX_WORKERS` | ❌ | Concurrent workers (default: 3) |
-| `CACHE_DIR` | ❌ | Cache directory (default: /tmp/ppt_image_cache) |
+|----------|:--------:|-------------|
+| `LLM_API_URL` | Yes | LLM API endpoint URL |
+| `LLM_MODEL` | Yes | Model name |
+| `LLM_API_KEY` | No | API key (required by some providers) |
+| `MAX_WORKERS` | No | Concurrent threads (default: `3`) |
+| `CACHE_DIR` | No | Cache directory (default: `/tmp/ppt_image_cache`) |
 
-### Configuration Examples
+### Provider Examples
 
-**OpenAI:**
+<details>
+<summary><b>OpenAI</b></summary>
+
 ```bash
-export LLM_API_URL=https://api.openai.com/v1/chat/completions
-export LLM_API_KEY=sk-your-api-key
-export LLM_MODEL=gpt-4o
+LLM_API_URL=https://api.openai.com/v1/chat/completions
+LLM_API_KEY=sk-your-api-key
+LLM_MODEL=gpt-4o
 ```
+</details>
 
-**Azure OpenAI:**
+<details>
+<summary><b>Azure OpenAI</b></summary>
+
 ```bash
-export LLM_API_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment/chat/completions?api-version=2024-02-15-preview
-export LLM_API_KEY=your-azure-api-key
-export LLM_MODEL=gpt-4o
+LLM_API_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment/chat/completions?api-version=2024-02-15-preview
+LLM_API_KEY=your-azure-api-key
+LLM_MODEL=gpt-4o
 ```
+</details>
 
-**Local Models (vLLM/Ollama):**
+<details>
+<summary><b>Local Models (vLLM / Ollama)</b></summary>
+
 ```bash
-export LLM_API_URL=http://localhost:8000/v1/chat/completions
-export LLM_MODEL=your-model-name
+LLM_API_URL=http://localhost:8000/v1/chat/completions
+LLM_MODEL=your-model-name
+# LLM_API_KEY is not needed for most local setups
 ```
+</details>
 
-For more examples, see [.env.example](.env.example) and [config/llm-config.yaml.example](config/llm-config.yaml.example).
+See [.env.example](.env.example) and [config/llm-config.yaml.example](config/llm-config.yaml.example) for more provider configurations.
 
----
-
-## Features
-
-- ✅ Single/Batch PPT conversion
-- ✅ AI image descriptions (supports multiple Vision LLMs)
-- ✅ Multi-threading for faster processing
-- ✅ Smart caching to avoid reprocessing
-- ✅ MCP server support for Claude Code
-
----
-
-## File Structure
+## Project Structure
 
 ```
-PPTX-Converter-MCP/
-├── bin/                          # Executable tools
-│   ├── pptx-to-md               # Single file conversion
-│   ├── pptx-batch-convert       # Batch conversion
-│   └── pptx-converter-mcp       # MCP server
+pptx-converter-mcp/
+├── bin/
+│   ├── pptx-to-md              # Single file conversion CLI
+│   ├── pptx-batch-convert      # Batch conversion CLI
+│   └── pptx-converter-mcp      # MCP server entry point
 ├── config/
-│   ├── mcp.json.template        # MCP configuration template
-│   └── llm-config.yaml.example  # LLM configuration reference
-├── docs/                         # Documentation
-│   ├── README.md
-│   └── MCP-DEPLOYMENT.md
-├── .env.example                  # Environment variables template
-├── examples/                     # Examples
-│   └── example.pptx
-├── install.sh                   # Installation script
-└── README.md                    # This file
+│   ├── mcp.json.template       # MCP configuration template
+│   └── llm-config.yaml.example # LLM configuration reference
+├── docs/
+│   ├── README.md               # Full documentation
+│   └── MCP-DEPLOYMENT.md       # MCP deployment guide
+├── examples/
+│   └── example.pptx            # Sample presentation
+├── .env.example                # Environment variables template
+└── install.sh                  # One-click installer
 ```
-
----
 
 ## Requirements
 
-- macOS / Linux
+- macOS or Linux
 - Python 3.11+
-- Any Vision LLM with OpenAI-compatible API
-
----
+- A Vision LLM with OpenAI-compatible API
 
 ## Documentation
 
 - [Full Documentation](docs/README.md)
-- [Deployment Guide](docs/MCP-DEPLOYMENT.md)
+- [MCP Deployment Guide](docs/MCP-DEPLOYMENT.md)
 
----
+## Acknowledgments
 
-**Version:** 1.1  
-**Date:** 2026-02-08
+Built on top of [Microsoft MarkItDown](https://github.com/microsoft/markitdown) — an excellent file-to-Markdown conversion library.
+
+## License
+
+[MIT](LICENSE)
