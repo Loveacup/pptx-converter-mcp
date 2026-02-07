@@ -204,14 +204,20 @@ async def call_tool(name: str, arguments: Any) -> List[TextContent]:
 
 async def main():
     """主函数 - 启动 MCP 服务器"""
-    async with stdio_server(server) as (read_stream, write_stream):
+    async with stdio_server() as (read_stream, write_stream):
         await server.run(
             read_stream,
             write_stream,
             InitializationOptions(
                 server_name="pptx-converter",
                 server_version="1.0.0",
-                capabilities=server.get_capabilities()
+                capabilities=server.get_capabilities(
+                    notification_options=NotificationOptions(
+                        resources_changed=True,
+                        tools_changed=True
+                    ),
+                    experimental_capabilities={}
+                )
             )
         )
 
