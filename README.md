@@ -1,68 +1,81 @@
 # PPTX Converter MCP
 
-PPT 转 Markdown MCP 服务器，支持 AI 图片描述。
+[English](README.md) | [中文](README.zh-CN.md)
 
-支持多种 Vision LLM 后端：OpenAI、Azure OpenAI、Anthropic、本地模型（vLLM、Ollama）等。
+Convert PowerPoint presentations to Markdown with AI-powered image descriptions.
+
+Supports multiple Vision LLM backends: OpenAI, Azure OpenAI, Anthropic, Local models (vLLM, Ollama), and more.
 
 ---
 
-## 快速开始
+## 📢 Acknowledgments
 
-### 1. 安装
+This project is built on top of [Microsoft MarkItDown](https://github.com/microsoft/markitdown), an excellent tool for converting various file formats to Markdown. We extend its functionality by adding:
+
+- AI-powered image description capabilities
+- MCP (Model Context Protocol) server support
+- Multi-threading and caching optimizations
+- Support for multiple Vision LLM providers
+
+---
+
+## Quick Start
+
+### 1. Install
 
 ```bash
 cd PPTX-Converter-MCP
 ./install.sh
 ```
 
-### 2. 配置 LLM
+### 2. Configure LLM
 
 ```bash
-# 复制配置模板
+# Copy configuration template
 cp .env.example .env
 
-# 编辑 .env 文件，设置你的 LLM 提供商
+# Edit .env file, set your LLM provider
 vim .env
 ```
 
-### 3. 重新加载 shell
+### 3. Reload Shell
 
 ```bash
-source ~/.zshrc  # 或 ~/.bashrc
+source ~/.zshrc  # or ~/.bashrc
 ```
 
-### 4. 使用
+### 4. Usage
 
-**单人转换:**
+**Single file conversion:**
 ```bash
 pptx-to-md "presentation.pptx" "output.md"
 ```
 
-**批量转换:**
+**Batch conversion:**
 ```bash
 pptx-batch-convert "/path/to/ppt/folder"
 ```
 
-**在 Claude Code 中使用:**
+**Use in Claude Code:**
 ```
-请帮我将 presentation.pptx 转换为 Markdown
+Please convert presentation.pptx to Markdown
 ```
 
 ---
 
-## 配置
+## Configuration
 
-### 环境变量
+### Environment Variables
 
-| 变量 | 必需 | 说明 |
-|------|------|------|
-| `LLM_API_URL` | ✅ | LLM API 端点 URL |
-| `LLM_MODEL` | ✅ | 模型名称 |
-| `LLM_API_KEY` | ❌ | API 密钥（部分提供商需要） |
-| `MAX_WORKERS` | ❌ | 并发数（默认: 3） |
-| `CACHE_DIR` | ❌ | 缓存目录（默认: /tmp/ppt_image_cache） |
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `LLM_API_URL` | ✅ | LLM API endpoint URL |
+| `LLM_MODEL` | ✅ | Model name |
+| `LLM_API_KEY` | ❌ | API key (required by some providers) |
+| `MAX_WORKERS` | ❌ | Concurrent workers (default: 3) |
+| `CACHE_DIR` | ❌ | Cache directory (default: /tmp/ppt_image_cache) |
 
-### 配置示例
+### Configuration Examples
 
 **OpenAI:**
 ```bash
@@ -78,63 +91,63 @@ export LLM_API_KEY=your-azure-api-key
 export LLM_MODEL=gpt-4o
 ```
 
-**本地模型 (vLLM/Ollama):**
+**Local Models (vLLM/Ollama):**
 ```bash
 export LLM_API_URL=http://localhost:8000/v1/chat/completions
 export LLM_MODEL=your-model-name
 ```
 
-更多配置示例请参阅 [.env.example](.env.example) 和 [config/llm-config.yaml.example](config/llm-config.yaml.example)。
+For more examples, see [.env.example](.env.example) and [config/llm-config.yaml.example](config/llm-config.yaml.example).
 
 ---
 
-## 功能特性
+## Features
 
-- ✅ 单人/批量 PPT 转换
-- ✅ AI 图片描述（支持多种 Vision LLM）
-- ✅ 多线程并发处理
-- ✅ 智能缓存避免重复处理
-- ✅ MCP 服务器支持
+- ✅ Single/Batch PPT conversion
+- ✅ AI image descriptions (supports multiple Vision LLMs)
+- ✅ Multi-threading for faster processing
+- ✅ Smart caching to avoid reprocessing
+- ✅ MCP server support for Claude Code
 
 ---
 
-## 文件说明
+## File Structure
 
 ```
 PPTX-Converter-MCP/
-├── bin/                          # 可执行工具
-│   ├── pptx-to-md               # 单人转换
-│   ├── pptx-batch-convert       # 批量转换
-│   └── pptx-converter-mcp       # MCP 服务器
+├── bin/                          # Executable tools
+│   ├── pptx-to-md               # Single file conversion
+│   ├── pptx-batch-convert       # Batch conversion
+│   └── pptx-converter-mcp       # MCP server
 ├── config/
-│   ├── mcp.json.template        # MCP 配置模板
-│   └── llm-config.yaml.example  # LLM 配置参考
-├── docs/                         # 文档
+│   ├── mcp.json.template        # MCP configuration template
+│   └── llm-config.yaml.example  # LLM configuration reference
+├── docs/                         # Documentation
 │   ├── README.md
 │   └── MCP-DEPLOYMENT.md
-├── .env.example                  # 环境变量配置模板
-├── examples/                     # 示例
+├── .env.example                  # Environment variables template
+├── examples/                     # Examples
 │   └── example.pptx
-├── install.sh                   # 安装脚本
-└── README.md                    # 本文件
+├── install.sh                   # Installation script
+└── README.md                    # This file
 ```
 
 ---
 
-## 系统要求
+## Requirements
 
 - macOS / Linux
 - Python 3.11+
-- 任意支持 OpenAI 兼容 API 的 Vision LLM
+- Any Vision LLM with OpenAI-compatible API
 
 ---
 
-## 详细文档
+## Documentation
 
-- [完整文档](docs/README.md)
-- [部署指南](docs/MCP-DEPLOYMENT.md)
+- [Full Documentation](docs/README.md)
+- [Deployment Guide](docs/MCP-DEPLOYMENT.md)
 
 ---
 
-**版本:** 1.1  
-**日期:** 2026-02-08
+**Version:** 1.1  
+**Date:** 2026-02-08
