@@ -53,6 +53,7 @@ Thumbs.db
 !docs/*.md
 !README.md
 !README.zh-CN.md
+!METHODOLOGY.md
 !QUICK-START.md
 !.env.example
 
